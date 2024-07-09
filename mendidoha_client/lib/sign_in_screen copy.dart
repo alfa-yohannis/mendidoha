@@ -5,16 +5,18 @@ import 'main_screen.dart'; // Import the MainScreen widget
 import 'sign_up_screen.dart'; // Import the SignUpScreen widget
 import 'reset_password_screen.dart'; // Import the ResetPasswordScreen widget
 
-class SignInScreen extends StatelessWidget {
+class SignInScreen extends StatefulWidget {
+  @override
+  _SignInScreenState createState() => _SignInScreenState();
+}
+
+class _SignInScreenState extends State<SignInScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final FocusNode _usernameFocusNode = FocusNode(); // Add FocusNode for username
+  final FocusNode _usernameFocusNode =
+      FocusNode(); // Add FocusNode for username
   final FocusNode _passwordFocusNode = FocusNode();
-
-  // Hardcoded credentials for validation
-  final String validUsername = 'admin';
-  final String validPassword = '1234';
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +39,8 @@ class SignInScreen extends StatelessWidget {
               SizedBox(height: 24.0), // Space between logo and the form
               TextFormField(
                 controller: _usernameController,
-                focusNode: _usernameFocusNode, // Attach FocusNode to username field
+                focusNode:
+                    _usernameFocusNode, // Attach FocusNode to username field
                 decoration: InputDecoration(
                   labelText: 'Username (Email)',
                   border: OutlineInputBorder(),
@@ -45,7 +48,7 @@ class SignInScreen extends StatelessWidget {
                 validator: (value) {
                   // if (value == null || value.isEmpty) {
                   //   return 'Please enter your username';
-                  // } 
+                  // }
                   // else if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(value)) {
                   //   return 'Please enter a valid email address';
                   // }
@@ -73,14 +76,14 @@ class SignInScreen extends StatelessWidget {
                 },
                 onFieldSubmitted: (_) {
                   // Trigger sign-in logic when password field submitted
-                  _signIn(context);
+                  _signIn();
                 },
               ),
               SizedBox(height: 16.0),
               ElevatedButton(
                 onPressed: () {
                   // Trigger sign-in logic when button pressed
-                  _signIn(context);
+                  _signIn();
                 },
                 child: Text('Sign In'),
               ),
@@ -100,7 +103,8 @@ class SignInScreen extends StatelessWidget {
                   // Navigate to reset password page
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => ResetPasswordScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => ResetPasswordScreen()),
                   );
                 },
                 child: Text('Reset Password'),
@@ -112,7 +116,7 @@ class SignInScreen extends StatelessWidget {
     );
   }
 
-  void _signIn(BuildContext context) {
+  Future<void> _signIn() async {
     // Validate the form fields
     if (_formKey.currentState!.validate()) {
       // Show a loading indicator while the request is in progress
@@ -124,12 +128,12 @@ class SignInScreen extends StatelessWidget {
         ),
       );
 
-      // Send the GET request
-      http.get(
-        Uri.parse('http://0.0.0.0:8080/login?username=${_usernameController.text}&password=${_passwordController.text}'),
-      ).then((response) {
-        // Hide the loading indicator
-        Navigator.of(context).pop();
+      try {
+        // Send the GET request
+        final response = await http.get(
+          Uri.parse(
+              'http://0.0.0.0:8080/login?username=${_usernameController.text}&password=${_passwordController.text}'),
+        );
 
         // Check the response status code
         if (response.statusCode == 200) {
@@ -137,31 +141,51 @@ class SignInScreen extends StatelessWidget {
 
           if (responseData['success'] == true) {
             // Navigate to the Main Screen if login is successful
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => MainScreen()),
-            );
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => MainScreen()),
+              );
+            }
           } else {
             // Show an error message if login failed
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Invalid username or password')),
-            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Invalid username or password')),
+              );
+            }
           }
         } else {
           // Show an error message if server returned an error
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Server error, please try again later')),
+            );
+          }
+        }
+      } catch (e) {
+        // Show an error message if there was an exception
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Server error, please try again later')),
+            SnackBar(
+                content: Text('An error occurred, please try again later')),
           );
         }
-      }).catchError((e) {
+      } finally {
         // Hide the loading indicator
-        Navigator.of(context).pop();
-
-        // Show an error message if there was an exception
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An error occurred, please try again later')),
-        );
-      });
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _usernameFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    super.dispose();
   }
 }
