@@ -3,7 +3,8 @@ pub mod schema;
 
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use dotenvy::dotenv;
+use dotenv::dotenv;
+use md5;
 use rand::distributions::Uniform;
 use rand::{thread_rng, Rng};
 use std::env;
@@ -12,11 +13,11 @@ use models::User;
 use schema::users;
 
 #[derive(Insertable)]
-#[diesel(table_name = users)]
+#[table_name = "users"]
 struct NewUser<'a> {
     user_id: &'a str,
     username: &'a str,
-    password: &'a str,
+    password: &'a str, // Store the MD5 hash here
 }
 
 pub fn establish_connection() -> PgConnection {
@@ -35,11 +36,12 @@ pub fn generate_user_id() -> String {
 
 pub fn create_user<'a>(conn: &mut PgConnection, username: &'a str, password: &'a str) -> User {
     let random_user_id = generate_user_id();
+    let hashed_password = hash_password(password);
 
     let new_user = NewUser {
         user_id: &random_user_id,
         username,
-        password,
+        password: &hashed_password,
     };
 
     diesel::insert_into(users::table)
@@ -51,12 +53,19 @@ pub fn create_user<'a>(conn: &mut PgConnection, username: &'a str, password: &'a
 pub fn verify_user(conn: &mut PgConnection, _username: &str, _password: &str) -> bool {
     use schema::users::dsl::*;
 
+    let hashed_password = hash_password(_password);
+
     match users
         .filter(username.eq(_username))
-        .filter(password.eq(_password))
+        .filter(password.eq(&hashed_password))
         .first::<User>(conn)
     {
         Ok(_) => true,
         Err(_) => false,
     }
+}
+
+fn hash_password(password: &str) -> String {
+    let result = md5::compute(password);
+    format!("{:x}", result)
 }
