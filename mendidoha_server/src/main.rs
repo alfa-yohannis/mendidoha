@@ -5,13 +5,14 @@ use actix_web::{web, App, HttpServer};
 mod db;
 mod handlers;
 
-use handlers::user_handler::{greet, login};
+use handlers::user_handler::{greet, login, signup};
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .route("/", web::get().to(greet))
+            .route("/signup", web::post().to(signup))
             .route("/login", web::get().to(login)) // Change to GET and handle URL parameters
     })
     .bind("127.0.0.1:8080")?

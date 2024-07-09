@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'sign_up_notification_screen.dart'; // Import the SignUpNotificationScreen widget
 
 class SignUpScreen extends StatelessWidget {
@@ -74,7 +77,7 @@ class SignUpScreen extends StatelessWidget {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your email';
                   } else if (!RegExp(emailPattern).hasMatch(value)) {
-                    return 'Please enter a valid email address';
+                    // return 'Please enter a valid email address';
                   }
                   return null;
                 },
@@ -91,7 +94,7 @@ class SignUpScreen extends StatelessWidget {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your password';
                   } else if (!RegExp(passwordPattern).hasMatch(value)) {
-                    return 'Password must be at least 8 characters long and contain at least:\n1 alphabet, 1 numeric, and 1 special character';
+                    // return 'Password must be at least 8 characters long and contain at least:\n1 alphabet, 1 numeric, and 1 special character';
                   }
                   return null;
                 },
@@ -118,19 +121,78 @@ class SignUpScreen extends StatelessWidget {
                 onPressed: () {
                   // Validate the form fields
                   if (_formKey.currentState!.validate()) {
-                    // If the form is valid, display a message
+                    // If the form is valid, send the POST request
                     String firstName = _firstNameController.text;
                     String middleName = _middleNameController.text;
                     String lastName = _lastNameController.text;
                     String email = _emailController.text;
                     String password = _passwordController.text;
-                    print('First Name: $firstName, Middle Name: $middleName, Last Name: $lastName, Email: $email, Password: $password');
-                    
-                    // Navigate to the Sign Up Notification Screen
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => SignUpNotificationScreen()),
-                    );
+
+                    // Prepare the request body
+                    Map<String, dynamic> requestBody = {
+                      'username': email,
+                      'password': password,
+                      'first_name': firstName,
+                      'middle_name': middleName,
+                      'last_name': lastName,
+                    };
+
+                    // Send the POST request
+                    Uri url = Uri.parse('http://0.0.0.0:8080/signup');
+                    http.post(
+                      url,
+                      headers: <String, String>{
+                        'Content-Type': 'application/json; charset=UTF-8',
+                      },
+                      body: jsonEncode(requestBody),
+                    ).then((response) {
+                      if (response.statusCode == 200) {
+                        // If server returns success response, navigate to success screen
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (context) => SignUpNotificationScreen()),
+                        );
+                      } else {
+                        // If server returns error response, show error message
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: Text('Sign Up Error'),
+                              content: Text('Failed to sign up user. Please try again later.'),
+                              actions: <Widget>[
+                                TextButton(
+                                  child: Text('OK'),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      }
+                    }).catchError((error) {
+                      // Handle other errors
+                      print('Error: $error');
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: Text('Error'),
+                            content: Text('An unexpected error occurred. Please try again later.'),
+                            actions: <Widget>[
+                              TextButton(
+                                child: Text('OK'),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    });
                   }
                 },
                 child: Text('Submit'),

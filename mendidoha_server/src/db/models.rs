@@ -9,4 +9,7 @@ pub struct User {
     pub user_id: String,
     pub username: String,
     pub password: String,
+    pub first_name: String,
+    pub middle_name: Option<String>,
+    pub last_name: String
 }
