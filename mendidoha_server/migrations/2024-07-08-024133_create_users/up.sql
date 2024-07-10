@@ -5,7 +5,9 @@ CREATE TABLE users (
     password VARCHAR(32) NOT NULL, -- Length of MD5 hash is 32 characters
     first_name VARCHAR(50) NOT NULL,
     middle_name VARCHAR(50),
-    last_name VARCHAR(50) NOT NULL
+    last_name VARCHAR(50) NOT NULL,
+    created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 -- Example using MD5 for password hashing

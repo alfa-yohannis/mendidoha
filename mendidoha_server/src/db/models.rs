@@ -1,7 +1,6 @@
-// use diesel::prelude::*;
 use diesel::Queryable;
-use serde_derive::Serialize;
-use serde_derive::Deserialize;
+use serde::{Serialize, Deserialize};
+use chrono::{DateTime, Utc};
 
 #[derive(Queryable, Serialize, Deserialize, Debug)]
 pub struct User {
@@ -11,5 +10,9 @@ pub struct User {
     pub password: String,
     pub first_name: String,
     pub middle_name: Option<String>,
-    pub last_name: String
+    pub last_name: String,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub created: DateTime<Utc>,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub updated: DateTime<Utc>,
 }
