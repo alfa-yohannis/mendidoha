@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:convert'; // for jsonDecode
+import 'dart:convert'; // for jsonEncode and jsonDecode
 import 'package:http/http.dart' as http; // import http package
 import 'main_screen.dart'; // Import the MainScreen widget
 import 'sign_up_screen.dart'; // Import the SignUpScreen widget
@@ -112,7 +112,7 @@ class SignInScreen extends StatelessWidget {
     );
   }
 
-  void _signIn(BuildContext context) {
+  void _signIn(BuildContext context) async {
     // Validate the form fields
     if (_formKey.currentState!.validate()) {
       // Show a loading indicator while the request is in progress
@@ -124,10 +124,22 @@ class SignInScreen extends StatelessWidget {
         ),
       );
 
-      // Send the GET request
-      http.get(
-        Uri.parse('http://0.0.0.0:8080/login?username=${_usernameController.text}&password=${_passwordController.text}'),
-      ).then((response) {
+      // Prepare JSON data for login request
+      final Map<String, dynamic> requestData = {
+        'username': _usernameController.text,
+        'password': _passwordController.text,
+      };
+
+      try {
+        // Send the POST request
+        final response = await http.post(
+          Uri.parse('http://0.0.0.0:8080/login'),
+          headers: <String, String>{
+            'Content-Type': 'application/json; charset=UTF-8',
+          },
+          body: jsonEncode(requestData),
+        );
+
         // Hide the loading indicator
         Navigator.of(context).pop();
 
@@ -153,7 +165,7 @@ class SignInScreen extends StatelessWidget {
             SnackBar(content: Text('Server error, please try again later')),
           );
         }
-      }).catchError((e) {
+      } catch (e) {
         // Hide the loading indicator
         Navigator.of(context).pop();
 
@@ -161,7 +173,7 @@ class SignInScreen extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('An error occurred, please try again later')),
         );
-      });
+      }
     }
   }
 }
