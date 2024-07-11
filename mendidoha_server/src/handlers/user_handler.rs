@@ -4,21 +4,21 @@ use crate::db::{create_user, establish_connection, update_user_password, verify_
 use crate::db::hash_password;
 
 // Structure for the login request
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct LoginRequest {
     pub username: String,
     pub password: String,
 }
 
 // Structure for the login response
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct LoginResponse {
-    success: bool,
-    message: String,
+    pub success: bool,
+    pub message: String,
 }
 
 // Structure for the sign-up request
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct SignUpRequest {
     pub username: String,
     pub password: String,
@@ -28,14 +28,14 @@ pub struct SignUpRequest {
 }
 
 // Structure for the sign-up response
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct SignUpResponse {
-    success: bool,
-    message: String,
+    pub success: bool,
+    pub message: String,
 }
 
 // Structure for the update password request
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct UpdatePasswordRequest {
     pub username: String,
     pub reset_code: String,
@@ -43,10 +43,10 @@ pub struct UpdatePasswordRequest {
 }
 
 // Structure for the update password response
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct UpdatePasswordResponse {
-    success: bool,
-    message: String,
+    pub success: bool,
+    pub message: String,
 }
 
 // Handler for the sign-up endpoint

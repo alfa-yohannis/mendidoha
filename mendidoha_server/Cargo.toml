@@ -14,3 +14,8 @@ md5 = "0.7.0"
 rand = "0.8.5"
 serde = { version = "1.0.204", features = ["derive"] }
 serde_derive = "1.0.204"
+serde_json = "1.0.120"
+
+[lib]
+name = "mendidoha_server"
+path = "src/lib.rs"
