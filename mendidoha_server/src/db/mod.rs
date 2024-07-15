@@ -16,7 +16,7 @@ use schema::users;
 #[derive(Insertable)]
 #[diesel(table_name = users)]
 struct NewUser<'a> {
-    user_id: &'a str,
+    code: &'a str,
     username: &'a str,
     password: &'a str, // Store the MD5 hash here
     first_name: &'a str,
@@ -31,7 +31,7 @@ pub fn establish_connection() -> PgConnection {
     PgConnection::establish(&database_url).expect(&format!("Error connecting to {}", database_url))
 }
 
-pub fn generate_user_id() -> String {
+pub fn generate_code() -> String {
     let mut rng = thread_rng();
     let range = Uniform::from(0..10);
     (0..10).map(|_| rng.sample(&range).to_string()).collect()
@@ -45,10 +45,10 @@ pub fn create_user<'a>(
     middle_name: Option<&'a str>,
     last_name: &'a str,
 ) -> Result<User, diesel::result::Error> {
-    let random_user_id = generate_user_id();
+    let random_code = generate_code();
 
     let new_user = NewUser {
-        user_id: &random_user_id,
+        code: &random_code,
         username,
         password,
         first_name,
