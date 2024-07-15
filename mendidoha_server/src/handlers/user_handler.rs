@@ -1,23 +1,21 @@
-use actix_web::{web, HttpResponse, Responder};
+use actix_session::Session;
+use actix_web::{web,  HttpResponse,  Responder};
 use serde_derive::{Deserialize, Serialize};
 use crate::db::{create_user, establish_connection, update_user_password, verify_user, verify_user_by_code};
 use crate::db::hash_password;
 
-// Structure for the login request
 #[derive(Serialize, Deserialize)]
 pub struct LoginRequest {
     pub username: String,
     pub password: String,
 }
 
-// Structure for the login response
 #[derive(Serialize, Deserialize)]
 pub struct LoginResponse {
     pub success: bool,
     pub message: String,
 }
 
-// Structure for the sign-up request
 #[derive(Serialize, Deserialize)]
 pub struct SignUpRequest {
     pub username: String,
@@ -27,14 +25,12 @@ pub struct SignUpRequest {
     pub last_name: String,
 }
 
-// Structure for the sign-up response
 #[derive(Serialize, Deserialize)]
 pub struct SignUpResponse {
     pub success: bool,
     pub message: String,
 }
 
-// Structure for the update password request
 #[derive(Serialize, Deserialize)]
 pub struct UpdatePasswordRequest {
     pub username: String,
@@ -42,21 +38,17 @@ pub struct UpdatePasswordRequest {
     pub new_password: String,
 }
 
-// Structure for the update password response
 #[derive(Serialize, Deserialize)]
 pub struct UpdatePasswordResponse {
     pub success: bool,
     pub message: String,
 }
 
-// Handler for the sign-up endpoint
 pub async fn signup(payload: web::Json<SignUpRequest>) -> impl Responder {
     let mut connection = establish_connection();
 
-    // Hash the password using MD5 (or other hash function)
     let hashed_password = hash_password(&payload.password);
 
-    // Create a new user in the database
     let new_user = create_user(
         &mut connection,
         &payload.username,
@@ -78,11 +70,12 @@ pub async fn signup(payload: web::Json<SignUpRequest>) -> impl Responder {
     }
 }
 
-// Handler for the login endpoint using JSON request body
-pub async fn login(payload: web::Json<LoginRequest>) -> impl Responder {
+pub async fn login(payload: web::Json<LoginRequest>, session: Session) -> impl Responder {
     let mut connection = establish_connection();
 
     if verify_user(&mut connection, &payload.username, &payload.password) {
+        session.insert("username", &payload.username).unwrap();
+
         HttpResponse::Ok().json(LoginResponse {
             success: true,
             message: "Login successful".to_string(),
@@ -95,37 +88,71 @@ pub async fn login(payload: web::Json<LoginRequest>) -> impl Responder {
     }
 }
 
-// Handler for the update password endpoint
-pub async fn reset_password(payload: web::Json<UpdatePasswordRequest>) -> impl Responder {
+pub async fn reset_password(payload: web::Json<UpdatePasswordRequest>, session: Session) -> impl Responder {
     let mut connection = establish_connection();
 
-    // Verify the old password
-    if verify_user_by_code(&mut connection, &payload.username, &payload.reset_code) {
-        // Hash the new password
-        let hashed_new_password = hash_password(&payload.new_password);
+    if let Some(username) = session.get::<String>("username").unwrap() {
+        if verify_user_by_code(&mut connection, &username, &payload.reset_code) {
+            let hashed_new_password = hash_password(&payload.new_password);
 
-        // Update the user's password in the database
-        let update_result = update_user_password(&mut connection, &payload.username, &hashed_new_password);
+            let update_result = update_user_password(&mut connection, &username, &hashed_new_password);
 
-        match update_result {
-            Ok(_) => HttpResponse::Ok().json(UpdatePasswordResponse {
-                success: true,
-                message: "Password updated successfully".to_string(),
-            }),
-            Err(_) => HttpResponse::InternalServerError().json(UpdatePasswordResponse {
+            match update_result {
+                Ok(_) => HttpResponse::Ok().json(UpdatePasswordResponse {
+                    success: true,
+                    message: "Password updated successfully".to_string(),
+                }),
+                Err(_) => HttpResponse::InternalServerError().json(UpdatePasswordResponse {
+                    success: false,
+                    message: "Failed to update password".to_string(),
+                }),
+            }
+        } else {
+            HttpResponse::Ok().json(UpdatePasswordResponse {
                 success: false,
-                message: "Failed to update password".to_string(),
-            }),
+                message: "Invalid username or old password".to_string(),
+            })
         }
     } else {
-        HttpResponse::Ok().json(UpdatePasswordResponse {
+        HttpResponse::Unauthorized().json(UpdatePasswordResponse {
             success: false,
-            message: "Invalid username or old password".to_string(),
+            message: "Unauthorized access".to_string(),
         })
     }
 }
 
-// Simple greeting endpoint
-pub async fn greet() -> impl Responder {
-    HttpResponse::Ok().body("Hello, Microservice!")
+pub async fn greet(session: Session) -> impl Responder {
+    if let Some(username) = session.get::<String>("username").unwrap() {
+        HttpResponse::Ok().body(format!("Hello, {}!", username))
+    } else {
+        HttpResponse::Unauthorized().body("Unauthorized access")
+    }
 }
+
+pub async fn logout(session: Session) -> impl Responder {
+    session.clear();
+    HttpResponse::Ok().body("Logged out successfully")
+}
+
+// #[actix_web::main]
+// async fn main() -> std::io::Result<()> {
+//     HttpServer::new(|| {
+//         let secret_key = Key::generate();
+
+//         App::new()
+//             .wrap(SessionMiddleware::new(
+//                 actix_session::storage::CookieSessionStore::default(),
+//                 secret_key.clone(),
+//             ))
+//             .service(web::scope("/api")
+//                 .route("/signup", web::post().to(signup))
+//                 .route("/login", web::post().to(login))
+//                 .route("/reset-password", web::post().to(reset_password))
+//                 .route("/greet", web::get().to(greet))
+//                 .route("/logout", web::post().to(logout))
+//             )
+//     })
+//     .bind("127.0.0.1:8080")?
+//     .run()
+//     .await
+// }

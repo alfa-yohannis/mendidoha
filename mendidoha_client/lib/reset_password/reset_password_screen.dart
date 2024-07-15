@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'sign_in_screen.dart'; // Import the SignInScreen widget
+import '../sign_in/sign_in_screen.dart'; // Import the SignInScreen widget
 import 'reset_password_success.dart'; // Import the ResetSuccessScreen widget
 
 class ResetPasswordScreen extends StatelessWidget {

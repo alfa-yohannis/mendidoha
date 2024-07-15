@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mendidoha_client/main.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mendidoha_client/sign_in_screen.dart'; // Import your SignInScreen widget
+import 'package:mendidoha_client/sign_in/sign_in_screen.dart'; // Import your SignInScreen widget
 
 void main() {
   testWidgets('SignInScreen Widget Test', (WidgetTester tester) async {

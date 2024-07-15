@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:mendidoha_client/supplier_screen.dart';
-import 'package:mendidoha_client/sign_in_screen.dart'; // Import the SignInScreen widget
+import 'package:mendidoha_client/supplier/supplier_list_screen.dart';
+import 'package:mendidoha_client/sign_in/sign_in_screen.dart'; // Import the SignInScreen widget
 
 class MainScreen extends StatefulWidget {
   @override
@@ -128,7 +128,7 @@ class _MainScreenState extends State<MainScreen> {
       case 2:
         return _buildCustomerScreen();
       case 3:
-        return SupplierScreen(); // Load SupplierScreen here
+        return SupplierListScreen();
       case 4:
         return _buildGoodsScreen();
       case 5:

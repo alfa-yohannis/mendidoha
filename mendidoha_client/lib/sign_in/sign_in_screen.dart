@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
-import 'dart:convert'; // for jsonDecode
+import 'dart:convert'; // for jsonEncode and jsonDecode
 import 'package:http/http.dart' as http; // import http package
-import 'main_screen.dart'; // Import the MainScreen widget
-import 'sign_up_screen.dart'; // Import the SignUpScreen widget
-import 'reset_password_screen.dart'; // Import the ResetPasswordScreen widget
+import '../main_screen.dart'; // Import the MainScreen widget
+import '../sign_up/sign_up_screen.dart'; // Import the SignUpScreen widget
+import '../reset_password/reset_password_screen.dart'; // Import the ResetPasswordScreen widget
+import 'package:mendidoha_client/config.dart'; 
 
-class SignInScreen extends StatefulWidget {
-  @override
-  _SignInScreenState createState() => _SignInScreenState();
-}
-
-class _SignInScreenState extends State<SignInScreen> {
+class SignInScreen extends StatelessWidget {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final FocusNode _usernameFocusNode =
-      FocusNode(); // Add FocusNode for username
+  final FocusNode _usernameFocusNode = FocusNode(); // Add FocusNode for username
   final FocusNode _passwordFocusNode = FocusNode();
+
+  // Hardcoded credentials for validation
+  final String validUsername = AppConfig.username;
+  final String validPassword = AppConfig.password;
 
   @override
   Widget build(BuildContext context) {
@@ -39,8 +38,7 @@ class _SignInScreenState extends State<SignInScreen> {
               SizedBox(height: 24.0), // Space between logo and the form
               TextFormField(
                 controller: _usernameController,
-                focusNode:
-                    _usernameFocusNode, // Attach FocusNode to username field
+                focusNode: _usernameFocusNode, // Attach FocusNode to username field
                 decoration: InputDecoration(
                   labelText: 'Username (Email)',
                   border: OutlineInputBorder(),
@@ -48,7 +46,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 validator: (value) {
                   // if (value == null || value.isEmpty) {
                   //   return 'Please enter your username';
-                  // }
+                  // } 
                   // else if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(value)) {
                   //   return 'Please enter a valid email address';
                   // }
@@ -76,14 +74,14 @@ class _SignInScreenState extends State<SignInScreen> {
                 },
                 onFieldSubmitted: (_) {
                   // Trigger sign-in logic when password field submitted
-                  _signIn();
+                  _signIn(context);
                 },
               ),
               SizedBox(height: 16.0),
               ElevatedButton(
                 onPressed: () {
                   // Trigger sign-in logic when button pressed
-                  _signIn();
+                  _signIn(context);
                 },
                 child: Text('Sign In'),
               ),
@@ -103,8 +101,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   // Navigate to reset password page
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                        builder: (context) => ResetPasswordScreen()),
+                    MaterialPageRoute(builder: (context) => ResetPasswordScreen()),
                   );
                 },
                 child: Text('Reset Password'),
@@ -116,7 +113,7 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
-  Future<void> _signIn() async {
+  void _signIn(BuildContext context) async {
     // Validate the form fields
     if (_formKey.currentState!.validate()) {
       // Show a loading indicator while the request is in progress
@@ -128,12 +125,24 @@ class _SignInScreenState extends State<SignInScreen> {
         ),
       );
 
+      // Prepare JSON data for login request
+      final Map<String, dynamic> requestData = {
+        'username': _usernameController.text,
+        'password': _passwordController.text,
+      };
+
       try {
-        // Send the GET request
-        final response = await http.get(
-          Uri.parse(
-              'http://0.0.0.0:8080/login?username=${_usernameController.text}&password=${_passwordController.text}'),
+        // Send the POST request
+        final response = await http.post(
+          Uri.parse('${AppConfig.apiUrl}login'),
+          headers: <String, String>{
+            'Content-Type': 'application/json; charset=UTF-8',
+          },
+          body: jsonEncode(requestData),
         );
+
+        // Hide the loading indicator
+        Navigator.of(context).pop();
 
         // Check the response status code
         if (response.statusCode == 200) {
@@ -141,51 +150,31 @@ class _SignInScreenState extends State<SignInScreen> {
 
           if (responseData['success'] == true) {
             // Navigate to the Main Screen if login is successful
-            if (mounted) {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => MainScreen()),
-              );
-            }
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => MainScreen()),
+            );
           } else {
             // Show an error message if login failed
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Invalid username or password')),
-              );
-            }
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Invalid username or password')),
+            );
           }
         } else {
           // Show an error message if server returned an error
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Server error, please try again later')),
-            );
-          }
-        }
-      } catch (e) {
-        // Show an error message if there was an exception
-        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('An error occurred, please try again later')),
+            SnackBar(content: Text('Server error, please try again later')),
           );
         }
-      } finally {
+      } catch (e) {
         // Hide the loading indicator
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
+        Navigator.of(context).pop();
+
+        // Show an error message if there was an exception
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred, please try again later')),
+        );
       }
     }
-  }
-
-  @override
-  void dispose() {
-    _usernameController.dispose();
-    _passwordController.dispose();
-    _usernameFocusNode.dispose();
-    _passwordFocusNode.dispose();
-    super.dispose();
   }
 }
