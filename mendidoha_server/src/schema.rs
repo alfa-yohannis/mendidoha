@@ -8,10 +8,6 @@ diesel::table! {
         name -> Varchar,
         created -> Timestamptz,
         updated -> Timestamptz,
-        #[max_length = 10]
-        created_by -> Nullable<Varchar>,
-        #[max_length = 10]
-        updated_by -> Nullable<Varchar>,
     }
 }
 
@@ -124,10 +120,19 @@ diesel::table! {
 }
 
 diesel::table! {
+    test_table (id) {
+        id -> Int4,
+        #[max_length = 50]
+        name -> Nullable<Varchar>,
+    }
+}
+
+diesel::table! {
     suppliers (id) {
         id -> Int4,
         #[max_length = 10]
         code -> Varchar,
+        #[max_length = 50]
         name -> Varchar,
         created -> Timestamptz,
         updated -> Timestamptz,
@@ -135,14 +140,6 @@ diesel::table! {
         created_by -> Nullable<Varchar>,
         #[max_length = 10]
         updated_by -> Nullable<Varchar>,
-    }
-}
-
-diesel::table! {
-    test_table (id) {
-        id -> Int4,
-        #[max_length = 50]
-        name -> Nullable<Varchar>,
     }
 }
 

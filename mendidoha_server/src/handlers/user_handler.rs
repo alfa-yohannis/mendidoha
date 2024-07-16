@@ -1,8 +1,8 @@
+use crate::db::user::{create_user, update_user_password, verify_user, verify_user_by_code};
+use crate::db::{establish_connection, hash_password};
 use actix_session::Session;
-use actix_web::{web,  HttpResponse,  Responder};
+use actix_web::{web, HttpResponse, Responder};
 use serde_derive::{Deserialize, Serialize};
-use crate::db::{create_user, establish_connection, update_user_password, verify_user, verify_user_by_code};
-use crate::db::hash_password;
 
 #[derive(Serialize, Deserialize)]
 pub struct LoginRequest {
@@ -56,6 +56,7 @@ pub async fn signup(payload: web::Json<SignUpRequest>) -> impl Responder {
         &payload.first_name,
         payload.middle_name.as_deref(),
         &payload.last_name,
+        None
     );
 
     match new_user {
@@ -88,14 +89,18 @@ pub async fn login(payload: web::Json<LoginRequest>, session: Session) -> impl R
     }
 }
 
-pub async fn reset_password(payload: web::Json<UpdatePasswordRequest>, session: Session) -> impl Responder {
+pub async fn reset_password(
+    payload: web::Json<UpdatePasswordRequest>,
+    session: Session,
+) -> impl Responder {
     let mut connection = establish_connection();
 
     if let Some(username) = session.get::<String>("username").unwrap() {
         if verify_user_by_code(&mut connection, &username, &payload.reset_code) {
             let hashed_new_password = hash_password(&payload.new_password);
 
-            let update_result = update_user_password(&mut connection, &username, &hashed_new_password);
+            let update_result =
+                update_user_password(&mut connection, &username, &hashed_new_password);
 
             match update_result {
                 Ok(_) => HttpResponse::Ok().json(UpdatePasswordResponse {
