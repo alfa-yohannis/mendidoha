@@ -1,5 +1,6 @@
 pub mod user;
 pub mod supplier;
+pub mod sessions;
 
 use diesel::pg::PgConnection;
 use diesel::prelude::*;

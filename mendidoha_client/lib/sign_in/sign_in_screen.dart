@@ -4,18 +4,32 @@ import 'package:http/http.dart' as http; // import http package
 import '../main_screen.dart'; // Import the MainScreen widget
 import '../sign_up/sign_up_screen.dart'; // Import the SignUpScreen widget
 import '../reset_password/reset_password_screen.dart'; // Import the ResetPasswordScreen widget
-import 'package:mendidoha_client/config.dart'; 
+import 'package:mendidoha_client/config.dart';
+import 'package:mendidoha_client/uuid_manager.dart'; // Import the UUID manager
+import 'package:shared_preferences/shared_preferences.dart'; // Import shared_preferences
 
-class SignInScreen extends StatelessWidget {
+class SignInScreen extends StatefulWidget {
+  @override
+  _SignInScreenState createState() => _SignInScreenState();
+}
+
+class _SignInScreenState extends State<SignInScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final FocusNode _usernameFocusNode = FocusNode(); // Add FocusNode for username
+  final FocusNode _usernameFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
 
-  // Hardcoded credentials for validation
-  final String validUsername = AppConfig.username;
-  final String validPassword = AppConfig.password;
+  @override
+  void initState() {
+    super.initState();
+    _initializeUuid();
+  }
+
+  Future<void> _initializeUuid() async {
+    String uuid = await UuidManager.getOrCreateUuid();
+    print('User UUID: $uuid'); // You can remove this line or use it as needed
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -129,6 +143,7 @@ class SignInScreen extends StatelessWidget {
       final Map<String, dynamic> requestData = {
         'username': _usernameController.text,
         'password': _passwordController.text,
+        'device_id': await UuidManager.getOrCreateUuid()
       };
 
       try {
@@ -149,6 +164,9 @@ class SignInScreen extends StatelessWidget {
           final Map<String, dynamic> responseData = jsonDecode(response.body);
 
           if (responseData['success'] == true) {
+            // Store session details locally
+            await _storeSessionDetails(responseData);
+
             // Navigate to the Main Screen if login is successful
             Navigator.pushReplacement(
               context,
@@ -176,5 +194,12 @@ class SignInScreen extends StatelessWidget {
         );
       }
     }
+  }
+
+  Future<void> _storeSessionDetails(Map<String, dynamic> sessionData) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('session_id', sessionData['session_id']);
+    await prefs.setString('start_time', sessionData['start_time']);
+    await prefs.setString('expiry_time', sessionData['expiry_time']);
   }
 }

@@ -1,6 +1,7 @@
 use actix_web::{test, web, App};
 use mendidoha_server::handlers::user_handler::{signup, login, reset_password, greet}; // Adjust the path as needed
-use mendidoha_server::handlers::user_handler::{SignUpRequest, SignUpResponse, LoginRequest, LoginResponse, UpdatePasswordRequest, UpdatePasswordResponse}; // Adjust the path as needed
+use mendidoha_server::handlers::user_handler::{SignUpRequest, SignUpResponse, LoginRequest, LoginResponse, UpdatePasswordRequest, UpdatePasswordResponse};
+use mendidoha_server::schema::sessions::device_id; // Adjust the path as needed
 
 #[actix_rt::test]
 async fn test_signup_success() {
@@ -40,6 +41,7 @@ async fn test_login_success() {
     let payload = LoginRequest {
         username: "testuser".to_string(),
         password: "testpassword".to_string(),
+        device_id: "d07a069a-1c85-464a-a044-9b76c6bce847".to_string()
     };
 
     let mut app = test::init_service(App::new().route("/login", web::post().to(login))).await;

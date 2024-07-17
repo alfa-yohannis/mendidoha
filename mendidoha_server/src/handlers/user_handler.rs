@@ -1,19 +1,28 @@
-use crate::db::user::{create_user, update_user_password, verify_user, verify_user_by_code};
+use crate::db::sessions::{create_session, get_active_session};
+use crate::db::user::{
+    create_user, get_user_code_by_username, update_user_password, verify_user, verify_user_by_code,
+};
 use crate::db::{establish_connection, hash_password};
-use actix_session::Session;
+use crate::models::session::NewSession;
 use actix_web::{web, HttpResponse, Responder};
+use chrono::{DateTime, Duration, Utc};
 use serde_derive::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize)]
 pub struct LoginRequest {
     pub username: String,
     pub password: String,
+    pub device_id: String,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct LoginResponse {
     pub success: bool,
     pub message: String,
+    pub session_id: Option<String>,
+    pub start_time: Option<DateTime<Utc>>,
+    pub expiry_time: Option<DateTime<Utc>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -56,7 +65,7 @@ pub async fn signup(payload: web::Json<SignUpRequest>) -> impl Responder {
         &payload.first_name,
         payload.middle_name.as_deref(),
         &payload.last_name,
-        None
+        Some(&payload.username),
     );
 
     match new_user {
@@ -71,93 +80,127 @@ pub async fn signup(payload: web::Json<SignUpRequest>) -> impl Responder {
     }
 }
 
-pub async fn login(payload: web::Json<LoginRequest>, session: Session) -> impl Responder {
+pub async fn login(payload: web::Json<LoginRequest>) -> impl Responder {
     let mut connection = establish_connection();
 
     if verify_user(&mut connection, &payload.username, &payload.password) {
-        session.insert("username", &payload.username).unwrap();
+        // Fetch user code by username
+        let user_code = get_user_code_by_username(&mut connection, &payload.username);
 
-        HttpResponse::Ok().json(LoginResponse {
-            success: true,
-            message: "Login successful".to_string(),
-        })
+        if let Some(user_code) = user_code {
+            // Check if there's an active session for this user and device
+            match get_active_session(&mut connection, &user_code, &payload.device_id) {
+                Ok(Some(session)) => {
+                    // Active session exists, return it
+                    HttpResponse::Ok().json(LoginResponse {
+                        success: true,
+                        message: "Active session found".to_string(),
+                        session_id: Some(session.session_id),
+                        start_time: Some(session.start_time),
+                        expiry_time: Some(session.expiry_time),
+                    })
+                }
+                Ok(None) => {
+                    // No active session, create a new one
+                    let session_id = generate_session_id();
+
+                    let start_time = Utc::now();
+                    let expiry_time = Utc::now() + Duration::hours(48);
+
+                    let new_session = NewSession {
+                        user_code: &user_code,
+                        device_id: &payload.device_id,
+                        session_id: &session_id,
+                        start_time,
+                        expiry_time,
+                        created: Utc::now(),
+                        updated: Utc::now(),
+                        created_by: Some(&payload.username),
+                        updated_by: Some(&payload.username),
+                    };
+
+                    if let Err(_) = create_session(&mut connection, &new_session) {
+                        return HttpResponse::InternalServerError().json(LoginResponse {
+                            success: false,
+                            message: "Failed to create session".to_string(),
+                            session_id: None,
+                            start_time: None,
+                            expiry_time: None,
+                        });
+                    }
+
+                    HttpResponse::Ok().json(LoginResponse {
+                        success: true,
+                        message: "Login successful".to_string(),
+                        session_id: Some(session_id),
+                        start_time: Some(start_time),
+                        expiry_time: Some(expiry_time),
+                    })
+                }
+                Err(_) => HttpResponse::InternalServerError().json(LoginResponse {
+                    success: false,
+                    message: "Failed to check active session".to_string(),
+                    session_id: None,
+                    start_time: None,
+                    expiry_time: None,
+                }),
+            }
+        } else {
+            HttpResponse::InternalServerError().json(LoginResponse {
+                success: false,
+                message: "Failed to retrieve user information".to_string(),
+                session_id: None,
+                start_time: None,
+                expiry_time: None,
+            })
+        }
     } else {
         HttpResponse::Ok().json(LoginResponse {
             success: false,
             message: "Invalid username or password".to_string(),
+            session_id: None,
+            start_time: None,
+            expiry_time: None,
         })
     }
 }
 
-pub async fn reset_password(
-    payload: web::Json<UpdatePasswordRequest>,
-    session: Session,
-) -> impl Responder {
+fn generate_session_id() -> String {
+    let uuid = Uuid::new_v4();
+    uuid.to_string()
+}
+
+pub async fn reset_password(payload: web::Json<UpdatePasswordRequest>) -> impl Responder {
     let mut connection = establish_connection();
 
-    if let Some(username) = session.get::<String>("username").unwrap() {
-        if verify_user_by_code(&mut connection, &username, &payload.reset_code) {
-            let hashed_new_password = hash_password(&payload.new_password);
+    if verify_user_by_code(&mut connection, &payload.username, &payload.reset_code) {
+        let hashed_new_password = hash_password(&payload.new_password);
 
-            let update_result =
-                update_user_password(&mut connection, &username, &hashed_new_password);
+        let update_result =
+            update_user_password(&mut connection, &payload.username, &hashed_new_password);
 
-            match update_result {
-                Ok(_) => HttpResponse::Ok().json(UpdatePasswordResponse {
-                    success: true,
-                    message: "Password updated successfully".to_string(),
-                }),
-                Err(_) => HttpResponse::InternalServerError().json(UpdatePasswordResponse {
-                    success: false,
-                    message: "Failed to update password".to_string(),
-                }),
-            }
-        } else {
-            HttpResponse::Ok().json(UpdatePasswordResponse {
+        match update_result {
+            Ok(_) => HttpResponse::Ok().json(UpdatePasswordResponse {
+                success: true,
+                message: "Password updated successfully".to_string(),
+            }),
+            Err(_) => HttpResponse::InternalServerError().json(UpdatePasswordResponse {
                 success: false,
-                message: "Invalid username or old password".to_string(),
-            })
+                message: "Failed to update password".to_string(),
+            }),
         }
     } else {
-        HttpResponse::Unauthorized().json(UpdatePasswordResponse {
+        HttpResponse::Ok().json(UpdatePasswordResponse {
             success: false,
-            message: "Unauthorized access".to_string(),
+            message: "Invalid username or old password".to_string(),
         })
     }
 }
 
-pub async fn greet(session: Session) -> impl Responder {
-    if let Some(username) = session.get::<String>("username").unwrap() {
-        HttpResponse::Ok().body(format!("Hello, {}!", username))
-    } else {
-        HttpResponse::Unauthorized().body("Unauthorized access")
-    }
+pub async fn greet() -> impl Responder {
+    HttpResponse::Ok().body(format!("Hello, User!"))
 }
 
-pub async fn logout(session: Session) -> impl Responder {
-    session.clear();
+pub async fn logout() -> impl Responder {
     HttpResponse::Ok().body("Logged out successfully")
 }
-
-// #[actix_web::main]
-// async fn main() -> std::io::Result<()> {
-//     HttpServer::new(|| {
-//         let secret_key = Key::generate();
-
-//         App::new()
-//             .wrap(SessionMiddleware::new(
-//                 actix_session::storage::CookieSessionStore::default(),
-//                 secret_key.clone(),
-//             ))
-//             .service(web::scope("/api")
-//                 .route("/signup", web::post().to(signup))
-//                 .route("/login", web::post().to(login))
-//                 .route("/reset-password", web::post().to(reset_password))
-//                 .route("/greet", web::get().to(greet))
-//                 .route("/logout", web::post().to(logout))
-//             )
-//     })
-//     .bind("127.0.0.1:8080")?
-//     .run()
-//     .await
-// }

@@ -81,3 +81,14 @@ pub fn update_user_password(
 
     Ok(())
 }
+
+/// Function to get user code by username
+pub fn get_user_code_by_username(conn: &mut PgConnection, username: &str) -> Option<String> {
+    use schema::users::dsl::*;
+
+    match users.filter(username.eq(username)).select(code).first::<String>(conn) {
+        Ok(user_code) => Some(user_code),
+        Err(_) => None,
+    }
+}
+

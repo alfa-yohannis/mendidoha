@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mendidoha_client/supplier/edit_supplier_screen.dart';
 import 'add_supplier_screen.dart'; // Import AddSupplierScreen
 
@@ -9,26 +12,51 @@ class SupplierListScreen extends StatefulWidget {
 }
 
 class _SupplierListScreenState extends State<SupplierListScreen> {
-  List<Map<String, dynamic>> _suppliers = [
-    {
-      'code': '1000000001',
-      'name': 'Supplier A Inc.',
-    },
-    {
-      'code': '1000000002',
-      'name': 'Supplier B Enterprises',
-    },
-    {
-      'code': '1000000003',
-      'name': 'Supplier C Ltd.',
-    },
-    // Add more suppliers as needed
-  ];
+  List<Map<String, dynamic>> _suppliers = [];
 
   TextEditingController _filterController = TextEditingController();
   String _searchTerm = '';
   int _sortColumnIndex = 0;
   bool _sortAscending = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSuppliers();
+  }
+
+  Future<void> _fetchSuppliers() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? sessionId = prefs.getString('session_id');
+
+    if (sessionId == null) {
+      // Handle case where session_id is not found
+      print('Session ID not found');
+      return;
+    }
+
+    final response = await http.get(
+      Uri.parse('http://0.0.0.0:8080/list_suppliers'),
+      headers: {
+        'Content-Type': 'application/json',
+        'session_id': sessionId,
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      setState(() {
+        _suppliers = data.map((item) => {
+          'code': item['code'],
+          'name': item['name'],
+          'no': _suppliers.length + 1, // Assuming 'no' is the line number
+        }).toList();
+      });
+    } else {
+      // Handle error
+      print('Failed to fetch suppliers');
+    }
+  }
 
   void _injectLineNumbers() {
     for (int i = 0; i < _suppliers.length; i++) {
@@ -90,35 +118,34 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
   }
 
   void _deleteSupplier(int index) {
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text('Confirm Delete'),
-        content: Text('Are you sure you want to delete this supplier?'),
-        actions: <Widget>[
-          TextButton(
-            child: Text('Cancel'),
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
-          TextButton(
-            child: Text('Delete'),
-            onPressed: () {
-              setState(() {
-                _suppliers.removeAt(index);
-                _injectLineNumbers(); // Update line numbers after deletion
-              });
-              Navigator.of(context).pop();
-            },
-          ),
-        ],
-      );
-    },
-  );
-}
-
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Confirm Delete'),
+          content: Text('Are you sure you want to delete this supplier?'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Delete'),
+              onPressed: () {
+                setState(() {
+                  _suppliers.removeAt(index);
+                  _injectLineNumbers(); // Update line numbers after deletion
+                });
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _navigateToAddSupplier(BuildContext context) async {
     final result = await Navigator.push(
@@ -158,12 +185,6 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
     }
 
     return code;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _injectLineNumbers();
   }
 
   @override
