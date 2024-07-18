@@ -38,6 +38,7 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
 
     final Map<String, dynamic> requestData = {
       'search_string': searchTerm,
+      'session_id': sessionId
     };
 
     final response = await http.post(

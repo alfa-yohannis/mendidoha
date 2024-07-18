@@ -5,6 +5,31 @@ use crate::schema::sessions;
 use crate::models::session::{Session, NewSession};
 use log::{error, info};
 
+pub fn is_session_valid(conn: &mut PgConnection, session_id: &str) -> Result<bool, diesel::result::Error> {
+    let current_time = Utc::now().naive_utc();
+
+    let active_session = sessions::table
+        .filter(sessions::session_id.eq(session_id))
+        .filter(sessions::expiry_time.gt(current_time))
+        .filter(sessions::start_time.lt(current_time))
+        .first::<Session>(conn)
+        .optional();
+
+    match active_session {
+        Ok(session) => {
+            if let Some(_) = session {
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        },
+        Err(e) => {
+            error!("Failed to check session validity: {:?}", e);
+            Err(e)
+        },
+    }
+}
+
 pub fn get_active_session(conn: &mut PgConnection, user_code: &str, device_id: &str) -> Result<Option<Session>, diesel::result::Error> {
     let current_time = Utc::now().to_utc();
 
