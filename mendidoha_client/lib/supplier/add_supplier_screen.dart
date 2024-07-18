@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 class AddSupplierScreen extends StatefulWidget {
   final Function(Map<String, dynamic>) onSupplierAdded;
 
-  const AddSupplierScreen({Key? key, required this.onSupplierAdded})
-      : super(key: key);
+  const AddSupplierScreen({super.key, required this.onSupplierAdded});
 
   @override
   _AddSupplierScreenState createState() => _AddSupplierScreenState();

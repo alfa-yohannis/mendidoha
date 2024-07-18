@@ -7,12 +7,14 @@ mod schema;
 
 use actix_web::{web, App,  HttpServer};
 
+use env_logger::Env;
 use handlers::supplier_handler::list_suppliers;
 use handlers::user_handler::{greet, login, logout, reset_password, signup};
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    // env_logger::init();
     HttpServer::new(|| {
         App::new()
             .route("/", web::get().to(greet))

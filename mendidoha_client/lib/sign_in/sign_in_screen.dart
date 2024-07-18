@@ -149,7 +149,7 @@ class _SignInScreenState extends State<SignInScreen> {
       try {
         // Send the POST request
         final response = await http.post(
-          Uri.parse('${AppConfig.apiUrl}login'),
+          Uri.parse('${AppConfig.apiUrl}/login'),
           headers: <String, String>{
             'Content-Type': 'application/json; charset=UTF-8',
           },

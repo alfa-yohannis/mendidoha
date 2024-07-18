@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:mendidoha_client/config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mendidoha_client/supplier/edit_supplier_screen.dart';
 import 'add_supplier_screen.dart'; // Import AddSupplierScreen
@@ -22,10 +23,10 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchSuppliers();
+    _fetchSuppliers('');
   }
 
-  Future<void> _fetchSuppliers() async {
+  Future<void> _fetchSuppliers(String searchTerm) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? sessionId = prefs.getString('session_id');
 
@@ -35,22 +36,30 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
       return;
     }
 
-    final response = await http.get(
-      Uri.parse('http://0.0.0.0:8080/list_suppliers'),
-      headers: {
-        'Content-Type': 'application/json',
-        'session_id': sessionId,
+    final Map<String, dynamic> requestData = {
+      'search_string': searchTerm,
+    };
+
+    final response = await http.post(
+      Uri.parse('${AppConfig.apiUrl}/suppliers'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
       },
+      body: jsonEncode(requestData),
     );
+
+    print('${AppConfig.apiUrl}/suppliers');
+    print(response.statusCode);
 
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       setState(() {
-        _suppliers = data.map((item) => {
-          'code': item['code'],
-          'name': item['name'],
-          'no': _suppliers.length + 1, // Assuming 'no' is the line number
-        }).toList();
+        _suppliers = data
+            .map((item) => {
+                  'code': item['code'],
+                  'name': item['name'],
+                })
+            .toList();
       });
     } else {
       // Handle error
@@ -58,21 +67,15 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
     }
   }
 
-  void _injectLineNumbers() {
-    for (int i = 0; i < _suppliers.length; i++) {
-      _suppliers[i]['no'] = i + 1;
-    }
-  }
-
   List<Map<String, dynamic>> _filteredSuppliers() {
     var filteredList = _suppliers;
-    if (_searchTerm.isNotEmpty) {
-      filteredList = filteredList
-          .where((supplier) => supplier['name']
-              .toLowerCase()
-              .contains(_searchTerm.toLowerCase()))
-          .toList();
-    }
+    // if (_searchTerm.isNotEmpty) {
+    //   filteredList = filteredList
+    //       .where((supplier) =>
+    //           supplier['name'].toLowerCase().contains(_searchTerm.toLowerCase()) ||
+    //           supplier['code'].toLowerCase().contains(_searchTerm.toLowerCase()))
+    //       .toList();
+    // }
 
     // Ensure _sortColumnIndex is within the range of columns
     int columnCount = _suppliers.isNotEmpty ? _suppliers[0].length : 0;
@@ -86,6 +89,11 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
           return bValue.toString().compareTo(aValue.toString());
         }
       });
+    }
+
+    // Inject line numbers after filtering and sorting
+    for (int i = 0; i < filteredList.length; i++) {
+      filteredList[i]['no'] = i + 1;
     }
 
     return filteredList;
@@ -136,7 +144,7 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
               onPressed: () {
                 setState(() {
                   _suppliers.removeAt(index);
-                  _injectLineNumbers(); // Update line numbers after deletion
+                  // No need to inject line numbers here as it will be done in _filteredSuppliers()
                 });
                 Navigator.of(context).pop();
               },
@@ -153,15 +161,13 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
       MaterialPageRoute(
         builder: (context) => AddSupplierScreen(
           onSupplierAdded: (Map<String, dynamic> newSupplier) {
-            String code =
-                _generateSupplierCode(); // Generate code for new supplier
+            String code = _generateSupplierCode(); // Generate code for new supplier
             setState(() {
               _suppliers.add({
                 'code': code,
                 'name': newSupplier['name'],
-                'no': _suppliers.length + 1, // Assuming 'no' is the line number
               });
-              _injectLineNumbers();
+              // No need to inject line numbers here as it will be done in _filteredSuppliers()
             });
             return code; // Return the generated code
           },
@@ -200,13 +206,14 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
             child: TextField(
               controller: _filterController,
               decoration: InputDecoration(
-                labelText: 'Filter by Supplier Name',
+                labelText: 'Filter by Supplier Name or Code',
                 suffixIcon: IconButton(
                   icon: Icon(Icons.search),
                   onPressed: () {
                     setState(() {
                       _searchTerm = _filterController.text;
                     });
+                    _fetchSuppliers(_searchTerm);
                   },
                 ),
               ),

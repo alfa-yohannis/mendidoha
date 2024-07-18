@@ -2,6 +2,7 @@ use chrono::Utc;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::result::QueryResult;
+use log::info;
 
 use crate::models::supplier::{NewSupplier, Supplier};
 use crate::schema::suppliers;
@@ -56,18 +57,20 @@ pub fn delete_supplier(conn: &mut PgConnection, supplier_id: i32) -> QueryResult
     diesel::delete(suppliers::table.find(supplier_id)).execute(conn)
 }
 
-pub fn list_suppliers(
-    conn: &mut PgConnection,
-    search: Option<String>,
-) -> QueryResult<Vec<Supplier>> {
+pub fn list_suppliers(conn: &mut PgConnection, search_term: &String) -> QueryResult<Vec<Supplier>> {
     use crate::schema::suppliers::dsl::*;
 
     let mut query = suppliers.into_boxed();
-    if let Some(search_term) = search {
-        query = query.filter(
-            code.like(format!("%{}%", search_term.clone()))
-                .or(name.like(format!("%{}%", search_term))),
-        );
-    }
+
+    let search_pattern = format!("%{}%", search_term);
+    info!("Search term: {}", search_term); // Log the search term
+    info!("Search pattern: {}", search_pattern); // Log the search pattern
+    query = query.filter(
+        name.like(format!("%{}%", &search_term))
+            .or(code.like(format!("%{}%", &search_term))),
+    );
+
+    let q = diesel::debug_query::<diesel::pg::Pg, _>(&query).to_string();
+    info!("SQL Query: {:?}", q);
     query.load::<Supplier>(conn)
 }

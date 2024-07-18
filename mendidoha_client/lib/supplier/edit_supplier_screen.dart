@@ -5,10 +5,10 @@ class EditSupplierScreen extends StatefulWidget {
   final Function(Map<String, dynamic>) onSupplierUpdated;
 
   const EditSupplierScreen({
-    Key? key,
+    super.key,
     required this.supplier,
     required this.onSupplierUpdated,
-  }) : super(key: key);
+  });
 
   @override
   _EditSupplierScreenState createState() => _EditSupplierScreenState();
