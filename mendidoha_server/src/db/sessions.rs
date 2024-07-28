@@ -30,6 +30,16 @@ pub fn is_session_valid(conn: &mut PgConnection, session_id: &str) -> Result<boo
     }
 }
 
+/// Function to get the most recent session by user_code
+pub fn get_most_recent_session_by_user_code(conn: &mut PgConnection, user_code: &str, device_id: &str) -> Result<Option<Session>, diesel::result::Error> {
+    sessions::table
+        .filter(sessions::user_code.eq(user_code))
+        .filter(sessions::device_id.eq(device_id))
+        .order_by(sessions::start_time.desc())
+        .first(conn)
+        .optional()
+}
+
 pub fn get_active_session(conn: &mut PgConnection, user_code: &str, device_id: &str) -> Result<Option<Session>, diesel::result::Error> {
     let current_time = Utc::now().to_utc();
 
@@ -106,6 +116,7 @@ pub fn list_sessions(conn: &mut PgConnection) -> Result<Vec<Session>, diesel::re
         },
     }
 }
+
 
 /// Function to get a session by user_code and device_id
 pub fn get_session_by_user_code_and_device_id(

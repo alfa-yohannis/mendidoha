@@ -1,4 +1,6 @@
-use crate::db::sessions::{create_session, get_active_session};
+use crate::db::sessions::{
+    create_session, get_active_session, get_most_recent_session_by_user_code, update_session,
+};
 use crate::db::user::{
     create_user, get_user_code_by_username, update_user_password, verify_user, verify_user_by_code,
 };
@@ -83,85 +85,123 @@ pub async fn signup(payload: web::Json<SignUpRequest>) -> impl Responder {
 pub async fn login(payload: web::Json<LoginRequest>) -> impl Responder {
     let mut connection = establish_connection();
 
-    if verify_user(&mut connection, &payload.username, &payload.password) {
-        // Fetch user code by username
-        let user_code = get_user_code_by_username(&mut connection, &payload.username);
-
-        if let Some(user_code) = user_code {
-            // Check if there's an active session for this user and device
-            match get_active_session(&mut connection, &user_code, &payload.device_id) {
-                Ok(Some(session)) => {
-                    // Active session exists, return it
-                    HttpResponse::Ok().json(LoginResponse {
-                        success: true,
-                        message: "Active session found".to_string(),
-                        session_id: Some(session.session_id),
-                        start_time: Some(session.start_time),
-                        expiry_time: Some(session.expiry_time),
-                    })
-                }
-                Ok(None) => {
-                    // No active session, create a new one
-                    let session_id = generate_session_id();
-
-                    let start_time = Utc::now();
-                    let expiry_time = Utc::now() + Duration::hours(48);
-
-                    let new_session = NewSession {
-                        user_code: &user_code,
-                        device_id: &payload.device_id,
-                        session_id: &session_id,
-                        start_time,
-                        expiry_time,
-                        created: Utc::now(),
-                        updated: Utc::now(),
-                        created_by: Some(&payload.username),
-                        updated_by: Some(&payload.username),
-                    };
-
-                    if let Err(_) = create_session(&mut connection, &new_session) {
-                        return HttpResponse::InternalServerError().json(LoginResponse {
-                            success: false,
-                            message: "Failed to create session".to_string(),
-                            session_id: None,
-                            start_time: None,
-                            expiry_time: None,
-                        });
-                    }
-
-                    HttpResponse::Ok().json(LoginResponse {
-                        success: true,
-                        message: "Login successful".to_string(),
-                        session_id: Some(session_id),
-                        start_time: Some(start_time),
-                        expiry_time: Some(expiry_time),
-                    })
-                }
-                Err(_) => HttpResponse::InternalServerError().json(LoginResponse {
-                    success: false,
-                    message: "Failed to check active session".to_string(),
-                    session_id: None,
-                    start_time: None,
-                    expiry_time: None,
-                }),
-            }
-        } else {
-            HttpResponse::InternalServerError().json(LoginResponse {
-                success: false,
-                message: "Failed to retrieve user information".to_string(),
-                session_id: None,
-                start_time: None,
-                expiry_time: None,
-            })
-        }
-    } else {
-        HttpResponse::Ok().json(LoginResponse {
+    if !verify_user(&mut connection, &payload.username, &payload.password) {
+        return HttpResponse::Ok().json(LoginResponse {
             success: false,
             message: "Invalid username or password".to_string(),
             session_id: None,
             start_time: None,
             expiry_time: None,
-        })
+        });
+    }
+
+    // Fetch user code by username
+    let user_code = match get_user_code_by_username(&mut connection, &payload.username) {
+        Some(code) => code,
+        None => {
+            return HttpResponse::InternalServerError().json(LoginResponse {
+                success: false,
+                message: "Failed to retrieve user information".to_string(),
+                session_id: None,
+                start_time: None,
+                expiry_time: None,
+            });
+        }
+    };
+
+    // Check if there's an active session for this user and device
+    let session_result = get_active_session(&mut connection, &user_code, &payload.device_id);
+
+    match session_result {
+        Ok(Some(mut session)) => {
+            // Active session exists and is not expired, return it
+            return HttpResponse::Ok().json(LoginResponse {
+                success: true,
+                message: "Active session found".to_string(),
+                session_id: Some(session.session_id),
+                start_time: Some(session.start_time),
+                expiry_time: Some(session.expiry_time),
+            });
+        }
+        Ok(None) => {
+            // Check for the most recent session
+            let recent_session = get_most_recent_session_by_user_code(
+                &mut connection,
+                &user_code,
+                &payload.device_id,
+            );
+
+            if let Ok(Some(mut session)) = recent_session {
+                // Update the existing session
+                session.start_time = Utc::now();
+                session.expiry_time = Utc::now() + Duration::hours(48);
+                session.updated = Utc::now();
+                session.updated_by = Some(payload.username.clone());
+
+                if update_session(&mut connection, session.id, &session).is_err() {
+                    return HttpResponse::InternalServerError().json(LoginResponse {
+                        success: false,
+                        message: "Failed to update session".to_string(),
+                        session_id: None,
+                        start_time: None,
+                        expiry_time: None,
+                    });
+                }
+
+                return HttpResponse::Ok().json(LoginResponse {
+                    success: true,
+                    message: "Login successful".to_string(),
+                    session_id: Some(session.session_id),
+                    start_time: Some(session.start_time),
+                    expiry_time: Some(session.expiry_time),
+                });
+            }
+
+            // No active or recent session, create a new one
+            let session_id = generate_session_id();
+
+            let start_time = Utc::now();
+            let expiry_time = Utc::now() + Duration::hours(48);
+
+            let new_session = NewSession {
+                user_code: &user_code,
+                device_id: &payload.device_id,
+                session_id: &session_id,
+                start_time,
+                expiry_time,
+                created: Utc::now(),
+                updated: Utc::now(),
+                created_by: Some(&payload.username),
+                updated_by: Some(&payload.username),
+            };
+
+            if create_session(&mut connection, &new_session).is_err() {
+                return HttpResponse::InternalServerError().json(LoginResponse {
+                    success: false,
+                    message: "Failed to create session".to_string(),
+                    session_id: None,
+                    start_time: None,
+                    expiry_time: None,
+                });
+            }
+
+            return HttpResponse::Ok().json(LoginResponse {
+                success: true,
+                message: "Login successful".to_string(),
+                session_id: Some(session_id),
+                start_time: Some(start_time),
+                expiry_time: Some(expiry_time),
+            });
+        }
+        Err(_) => {
+            return HttpResponse::InternalServerError().json(LoginResponse {
+                success: false,
+                message: "Failed to check active session".to_string(),
+                session_id: None,
+                start_time: None,
+                expiry_time: None,
+            });
+        }
     }
 }
 
