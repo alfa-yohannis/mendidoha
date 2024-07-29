@@ -9,7 +9,7 @@ use actix_web::{web, App, HttpServer};
 
 use env_logger::Env;
 use handlers::supplier_handler::list_suppliers;
-use handlers::user_handler::{greet, login, logout, reset_password, signup};
+use handlers::user_handler::{get_user, delete_user, greet, login, logout, reset_password, signup};
 use mendidoha_server::middlewares::validation::ValidationMiddleware;
 
 #[actix_rt::main]
@@ -27,10 +27,14 @@ async fn main() -> std::io::Result<()> {
                 ],
             })
             .route("/", web::get().to(greet))
+            // users
             .route("/signup", web::post().to(signup))
             .route("/login", web::post().to(login))
             .route("/reset_password", web::post().to(reset_password))
             .route("/logout", web::post().to(logout))
+            .route("/delete_user", web::post().to(delete_user))
+            .route("/get_user", web::post().to(get_user))
+            // suppliers
             .route("/suppliers", web::post().to(list_suppliers))
     })
     .bind("127.0.0.1:8080")?

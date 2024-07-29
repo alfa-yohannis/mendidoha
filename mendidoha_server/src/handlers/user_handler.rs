@@ -2,7 +2,8 @@ use crate::db::sessions::{
     create_session, get_active_session, get_most_recent_session_by_user_code, update_session,
 };
 use crate::db::user::{
-    create_user, get_user_code_by_username, update_user_password, verify_user, verify_user_by_code,
+    create_user, get_user_by_username, get_user_code_by_username, remove_user,
+    update_user_password, verify_user, verify_user_by_code,
 };
 use crate::db::{establish_connection, hash_password};
 use crate::models::session::NewSession;
@@ -53,6 +54,53 @@ pub struct UpdatePasswordRequest {
 pub struct UpdatePasswordResponse {
     pub success: bool,
     pub message: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DeleteUserRequest {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DeleteUserReponse {
+    pub success: bool,
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GetUserRequest {
+    pub username: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GetUserResponse {
+    pub username: String,
+    pub first_name: String,
+    pub middle_name: Option<String>,
+    pub last_name: String,
+    pub email: Option<String>,
+}
+
+pub async fn delete_user(payload: web::Json<DeleteUserRequest>) -> impl Responder {
+    let mut connection = establish_connection();
+
+    let hashed_password = hash_password(&payload.password);
+
+    match remove_user(&mut connection, &payload.username, &hashed_password) {
+        Ok(deleted) if deleted > 0 => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "User deleted successfully"
+        })),
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({
+            "success": false,
+            "message": "User not found or incorrect password"
+        })),
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "message": "Failed to delete user"
+        })),
+    }
 }
 
 pub async fn signup(payload: web::Json<SignUpRequest>) -> impl Responder {
@@ -234,6 +282,25 @@ pub async fn reset_password(payload: web::Json<UpdatePasswordRequest>) -> impl R
             success: false,
             message: "Invalid username or old password".to_string(),
         })
+    }
+}
+
+pub async fn get_user(payload: web::Json<GetUserRequest>) -> impl Responder {
+    println!("A");
+    let mut connection = establish_connection();
+
+    match get_user_by_username(&mut connection, &payload.username) {
+        Ok(user) => HttpResponse::Ok().json(GetUserResponse {
+            username: user.username,
+            first_name: user.first_name,
+            middle_name: user.middle_name,
+            last_name: user.last_name,
+            email: None,
+        }),
+        Err(_) => HttpResponse::Ok().json(serde_json::json!({
+            "success": false,
+            "message": "User not found"
+        })),
     }
 }
 

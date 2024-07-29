@@ -1,9 +1,9 @@
-use diesel::prelude::*;
-use diesel::pg::PgConnection;
-use diesel::result::QueryResult;
-use chrono::Utc;
-use crate::models::user::{User, NewUser};
+use crate::models::user::{NewUser, User};
 use crate::schema::{self, users};
+use chrono::Utc;
+use diesel::pg::PgConnection;
+use diesel::prelude::*;
+use diesel::result::QueryResult;
 
 pub fn create_user<'a>(
     conn: &mut PgConnection,
@@ -20,7 +20,8 @@ pub fn create_user<'a>(
     let new_user = NewUser {
         code: &random_code,
         username,
-        password: &crate::db::hash_password(password),
+        password,
+        // password: &crate::db::hash_password(password),
         first_name,
         middle_name,
         last_name,
@@ -86,9 +87,31 @@ pub fn update_user_password(
 pub fn get_user_code_by_username(conn: &mut PgConnection, username: &str) -> Option<String> {
     use schema::users::dsl::*;
 
-    match users.filter(username.eq(username)).select(code).first::<String>(conn) {
+    match users
+        .filter(username.eq(username))
+        .select(code)
+        .first::<String>(conn)
+    {
         Ok(user_code) => Some(user_code),
         Err(_) => None,
     }
 }
 
+/// Function to delete a user by username and password
+pub fn remove_user(
+    conn: &mut PgConnection,
+    username_param: &str,
+    password_param: &str,
+) -> QueryResult<usize> {
+    use schema::users::dsl::*;
+
+    diesel::delete(users.filter(username.eq(username_param).and(password.eq(password_param))))
+        .execute(conn)
+}
+
+/// Function to get a user by username
+pub fn get_user_by_username(conn: &mut PgConnection, username_param: &str) -> QueryResult<User> {
+    use schema::users::dsl::*;
+
+    users.filter(username.eq(username_param)).first::<User>(conn)
+}
