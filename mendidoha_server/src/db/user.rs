@@ -2,8 +2,9 @@ use crate::models::user::{NewUser, User};
 use crate::schema::{self, users};
 use chrono::Utc;
 use diesel::pg::PgConnection;
-use diesel::prelude::*;
 use diesel::result::QueryResult;
+use diesel::{debug_query, prelude::*};
+use log::info;
 
 pub fn create_user<'a>(
     conn: &mut PgConnection,
@@ -19,8 +20,8 @@ pub fn create_user<'a>(
 
     let new_user = NewUser {
         code: &random_code,
-        username,
-        password,
+        username: username,
+        password: password,
         // password: &crate::db::hash_password(password),
         first_name,
         middle_name,
@@ -30,10 +31,23 @@ pub fn create_user<'a>(
         created_by,
         updated_by: created_by,
     };
+ 
+    let insert_query = diesel::insert_into(users::table).values(&new_user);
 
-    diesel::insert_into(users::table)
+    // Print the SQL query
+    let sql_string = debug_query::<diesel::pg::Pg, _>(&insert_query).to_string();
+    info!("SQL Query: {:?}", sql_string);
+
+    match diesel::insert_into(users::table)
         .values(&new_user)
-        .get_result(conn)
+        .get_result(conn) {
+        Ok(user) => Ok(user),
+        Err(e) => {
+            // Log the error
+            eprintln!("Database insert error: {:?}", e);
+            Err(e)
+        }
+    }
 }
 
 pub fn verify_user_by_code(conn: &mut PgConnection, _username: &str, _reset_code: &str) -> bool {
@@ -113,5 +127,7 @@ pub fn remove_user(
 pub fn get_user_by_username(conn: &mut PgConnection, username_param: &str) -> QueryResult<User> {
     use schema::users::dsl::*;
 
-    users.filter(username.eq(username_param)).first::<User>(conn)
+    users
+        .filter(username.eq(username_param))
+        .first::<User>(conn)
 }

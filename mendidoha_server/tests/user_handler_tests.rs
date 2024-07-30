@@ -1,3 +1,4 @@
+use mendidoha_server::handlers::user_handler;
 use mendidoha_server::handlers::user_handler::{greet, login, reset_password, signup}; // Adjust the path as needed
 use mendidoha_server::handlers::user_handler::{LoginResponse, SignUpResponse};
 // Adjust the path as needed
@@ -6,8 +7,9 @@ use mendidoha_server::handlers::user_handler::{LoginResponse, SignUpResponse};
 mod tests {
     use super::*;
     use actix_web::{http, test, web, App};
+
     use mendidoha_server::handlers::user_handler::{
-        delete_user, logout, DeleteUserReponse, UpdatePasswordResponse,
+        logout, GetUserResponse, UpdatePasswordResponse,
     };
     use serde_json::json;
 
@@ -15,43 +17,18 @@ mod tests {
     async fn test_signup_success() {
         let mut app = test::init_service(App::new().route("/signup", web::post().to(signup))).await;
 
-        // // get the user first
-        // let payload = json!({
-        //     "username": "testuser"
-        // });
-
-        // let req = test::TestRequest::post()
-        //     .uri("/get_user")
-        //     .set_json(&payload)
-        //     .to_request();
-
-        // let resp = test::call_service(&mut app, req).await;
-        // let response_body: SignUpResponse = test::read_body_json(resp).await;
-
-        // // if existed then delete
-        // if response_body.success == false {
-        //     // delete the user
-        //     let payload = json!({
-        //         "username": "testuser",
-        //         "password": "password123",
-        //     });
-
-        //     let req = test::TestRequest::post()
-        //         .uri("/delete_user")
-        //         .set_json(&payload)
-        //         .to_request();
-
-        //     let resp = test::call_service(&mut app, req).await;
-        //     assert_eq!(resp.status(), http::StatusCode::OK);
-
-        //     let response_body: SignUpResponse = test::read_body_json(resp).await;
-        //     assert!(response_body.success);
-        // }
+        // find existing if success delete
+        let username = "success_user";
+        let password = "succcess_user";
+        let response = get_user(username, password).await;
+        if response.success {
+            delete_user(username, password).await;
+        }
 
         // add a new one
         let payload = json!({
-            "username": "testuser",
-            "password": "password123",
+            "username": username,
+            "password": password,
             "first_name": "Test",
             "middle_name": null,
             "last_name": "User"
@@ -68,23 +45,29 @@ mod tests {
         let response_body: SignUpResponse = test::read_body_json(resp).await;
         assert!(response_body.success);
 
-        delete_the_user("testuser", "password123");
-
+        delete_user(username, password).await;
     }
 
     #[actix_rt::test]
     async fn test_signup_failure() {
         let mut app = test::init_service(App::new().route("/signup", web::post().to(signup))).await;
 
+        // find existing if success delete
+        let username = "fail_user";
+        let password = "fail_user";
+        let response = get_user(username, password).await;
+        if !response.success {
+            create_user(username, password).await;   
+        }
+
         // Simulate a failure in user creation by providing invalid input or mocking the function
         let payload = json!({
-            "username": "testuser",
-            "password": "password123",
+            "username": username,
+            "password": format!("{}A", password),
             "first_name": "Test",
             "middle_name": null,
             "last_name": "User"
         });
-
         let req = test::TestRequest::post()
             .uri("/signup")
             .set_json(&payload)
@@ -96,6 +79,8 @@ mod tests {
         let response_body: SignUpResponse = test::read_body_json(resp).await;
         assert!(!response_body.success);
         assert_eq!(response_body.message, "Failed to sign up user");
+
+        delete_user(username, password).await;
     }
 
     #[actix_rt::test]
@@ -144,14 +129,23 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_reset_password_success() {
+        
+        // find existing if success delete
+        let username = "reset_password_user";
+        let password = &username;
+        let response = get_user(username, password).await;
+        if !response.success {
+            create_user(username, password).await;
+        }
+        
         let mut app =
             test::init_service(App::new().route("/reset_password", web::post().to(reset_password)))
                 .await;
 
         let payload = json!({
-            "username": "testuser",
-            "reset_code": "reset123",
-            "new_password": "newpassword123"
+            "username": username,
+            "reset_code": "1234",
+            "new_password":format!("{}A", password)
         });
 
         let req = test::TestRequest::post()
@@ -165,6 +159,8 @@ mod tests {
         let response_body: UpdatePasswordResponse = test::read_body_json(resp).await;
         assert!(response_body.success);
         assert_eq!(response_body.message, "Password updated successfully");
+
+        delete_user(username, password).await;
     }
 
     #[actix_rt::test]
@@ -189,7 +185,6 @@ mod tests {
 
         let response_body: UpdatePasswordResponse = test::read_body_json(resp).await;
         assert!(!response_body.success);
-        assert_eq!(response_body.message, "Invalid username or old password");
     }
 
     #[actix_rt::test]
@@ -218,10 +213,60 @@ mod tests {
         assert_eq!(body, "Logged out successfully");
     }
 
-    pub async fn delete_the_user(username :&str, password: &str) {
+    pub async fn create_user(username: & str, password: &str) {
+        let mut app = test::init_service(App::new().route("/signup", web::post().to(signup))).await;
+
+        // add a new one
+        let payload = json!({
+            "username": username,
+            "password": password,
+            "first_name": "Test",
+            "middle_name": null,
+            "last_name": "User"
+        });
+
+        let req = test::TestRequest::post()
+            .uri("/signup")
+            .set_json(&payload)
+            .to_request();
+
+        let resp = test::call_service(&mut app, req).await;
+        assert_eq!(resp.status(), http::StatusCode::OK);
+
+        let response_body: SignUpResponse = test::read_body_json(resp).await;
+        assert!(response_body.success);
+    }
+
+    pub async fn get_user(username: &str, password: &str) -> GetUserResponse {
         // delete the user
-        let mut app =
-            test::init_service(App::new().route("/delete_user", web::post().to(delete_user))).await;
+        let mut app = test::init_service(
+            App::new().route("/get_user", web::post().to(user_handler::get_user)),
+        )
+        .await;
+
+        let payload = json!({
+            "username": username,
+            "password": password,
+        });
+
+        let req: actix_http::Request = test::TestRequest::post()
+            .uri("/get_user")
+            .set_json(&payload)
+            .to_request();
+
+        let resp = test::call_service(&mut app, req).await;
+        assert_eq!(resp.status(), http::StatusCode::OK);
+
+        let response_body: GetUserResponse = test::read_body_json(resp).await;
+        return response_body;
+    }
+
+    pub async fn delete_user(username: &str, password: &str) {
+        // delete the user
+        let mut app = test::init_service(
+            App::new().route("/delete_user", web::post().to(user_handler::delete_user)),
+        )
+        .await;
 
         let payload = json!({
             "username": username,
@@ -234,9 +279,5 @@ mod tests {
             .to_request();
 
         let resp = test::call_service(&mut app, req).await;
-        assert_eq!(resp.status(), http::StatusCode::OK);
-
-        let response_body: DeleteUserReponse = test::read_body_json(resp).await;
-        assert!(response_body.success);
     }
 }

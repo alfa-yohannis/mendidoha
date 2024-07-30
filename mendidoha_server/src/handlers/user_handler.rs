@@ -80,6 +80,7 @@ pub struct GetUserResponse {
     pub middle_name: Option<String>,
     pub last_name: String,
     pub email: Option<String>,
+    pub success: bool,
 }
 
 pub async fn delete_user(payload: web::Json<DeleteUserRequest>) -> impl Responder {
@@ -115,7 +116,7 @@ pub async fn signup(payload: web::Json<SignUpRequest>) -> impl Responder {
         &payload.first_name,
         payload.middle_name.as_deref(),
         &payload.last_name,
-        Some(&payload.username),
+        Some("admin"),
     );
 
     match new_user {
@@ -286,21 +287,25 @@ pub async fn reset_password(payload: web::Json<UpdatePasswordRequest>) -> impl R
 }
 
 pub async fn get_user(payload: web::Json<GetUserRequest>) -> impl Responder {
-    println!("A");
     let mut connection = establish_connection();
 
     match get_user_by_username(&mut connection, &payload.username) {
         Ok(user) => HttpResponse::Ok().json(GetUserResponse {
+            success: true,
             username: user.username,
             first_name: user.first_name,
             middle_name: user.middle_name,
             last_name: user.last_name,
             email: None,
         }),
-        Err(_) => HttpResponse::Ok().json(serde_json::json!({
-            "success": false,
-            "message": "User not found"
-        })),
+        Err(_) => HttpResponse::Ok().json(GetUserResponse {
+            success: false,
+            username: String::new(),
+            first_name: String::new(),
+            middle_name: None,
+            last_name: String::new(),
+            email: None,
+        }),
     }
 }
 

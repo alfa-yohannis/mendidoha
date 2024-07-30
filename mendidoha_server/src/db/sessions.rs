@@ -92,7 +92,7 @@ pub fn update_session(conn: &mut PgConnection, session_id: i32, updated_session:
     }
 }
 
-/// Function to delete a session from the database
+/// Function to delete a session from the database 
 pub fn delete_session(conn: &mut PgConnection, session_id: i32) -> Result<(), diesel::result::Error> {
     match diesel::delete(sessions::table.find(session_id)).execute(conn) {
         Ok(_) => {

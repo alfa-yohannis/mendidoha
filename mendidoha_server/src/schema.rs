@@ -159,14 +159,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    test_table (id) {
-        id -> Int4,
-        #[max_length = 50]
-        name -> Nullable<Varchar>,
-    }
-}
-
-diesel::table! {
     users (id) {
         id -> Int4,
         #[max_length = 10]
@@ -205,6 +197,5 @@ diesel::allow_tables_to_appear_in_same_query!(
     services,
     sessions,
     suppliers,
-    test_table,
     users,
 );
