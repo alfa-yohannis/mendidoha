@@ -110,7 +110,7 @@ where
                     return call_service_with_payload(svc, req, body).await;
                 }
             }
-
+            
             // If the fields are missing or deserialization failed, return an error
             Err(actix_web::error::ErrorBadRequest(
                 "Missing session_id, username, or device_id",

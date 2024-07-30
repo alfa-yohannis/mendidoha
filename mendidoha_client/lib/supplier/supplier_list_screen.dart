@@ -29,16 +29,19 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
   Future<void> _fetchSuppliers(String searchTerm) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? sessionId = prefs.getString('session_id');
+    String? deviceId = prefs.getString('device_id');
+    String? username = prefs.getString('username');
 
-    if (sessionId == null) {
-      // Handle case where session_id is not found
-      print('Session ID not found');
+    if (sessionId == null || deviceId == null || username == null) {
+      print('Session ID, Device ID, or Username not found');
       return;
     }
 
     final Map<String, dynamic> requestData = {
       'search_string': searchTerm,
-      'session_id': sessionId
+      'session_id': sessionId,
+      'device_id': deviceId,
+      'username': username,
     };
 
     final response = await http.post(
@@ -48,9 +51,6 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
       },
       body: jsonEncode(requestData),
     );
-
-    print('${AppConfig.apiUrl}/suppliers');
-    print(response.statusCode);
 
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
@@ -63,22 +63,76 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
             .toList();
       });
     } else {
-      // Handle error
       print('Failed to fetch suppliers');
     }
   }
 
+  Future<void> _deleteSupplier(int index) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? sessionId = prefs.getString('session_id');
+    String? deviceId = prefs.getString('device_id');
+    String? username = prefs.getString('username');
+    String supplierCode = _suppliers[index]['code'];
+
+    if (sessionId == null || deviceId == null || username == null) {
+      print('Session ID, Device ID, or Username not found');
+      return;
+    }
+
+    final Map<String, dynamic> requestData = {
+      'session_id': sessionId,
+      'device_id': deviceId,
+      'username': username,
+      'code': supplierCode,
+    };
+
+    final response = await http.post(
+      Uri.parse('${AppConfig.apiUrl}/suppliers/delete'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode(requestData),
+    );
+
+    if (response.statusCode == 200) {
+      setState(() {
+        _suppliers.removeAt(index);
+      });
+    } else {
+      print('Failed to delete supplier');
+    }
+  }
+
+  void _showDeleteConfirmationDialog(int index) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Confirm Delete'),
+          content: Text('Are you sure you want to delete this supplier?'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Delete'),
+              onPressed: () {
+                _deleteSupplier(index);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   List<Map<String, dynamic>> _filteredSuppliers() {
     var filteredList = _suppliers;
-    // if (_searchTerm.isNotEmpty) {
-    //   filteredList = filteredList
-    //       .where((supplier) =>
-    //           supplier['name'].toLowerCase().contains(_searchTerm.toLowerCase()) ||
-    //           supplier['code'].toLowerCase().contains(_searchTerm.toLowerCase()))
-    //       .toList();
-    // }
 
-    // Ensure _sortColumnIndex is within the range of columns
     int columnCount = _suppliers.isNotEmpty ? _suppliers[0].length : 0;
     if (_sortColumnIndex <= columnCount) {
       filteredList.sort((a, b) {
@@ -92,7 +146,6 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
       });
     }
 
-    // Inject line numbers after filtering and sorting
     for (int i = 0; i < filteredList.length; i++) {
       filteredList[i]['no'] = i + 1;
     }
@@ -126,51 +179,19 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
     }
   }
 
-  void _deleteSupplier(int index) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Confirm Delete'),
-          content: Text('Are you sure you want to delete this supplier?'),
-          actions: <Widget>[
-            TextButton(
-              child: Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: Text('Delete'),
-              onPressed: () {
-                setState(() {
-                  _suppliers.removeAt(index);
-                  // No need to inject line numbers here as it will be done in _filteredSuppliers()
-                });
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _navigateToAddSupplier(BuildContext context) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => AddSupplierScreen(
           onSupplierAdded: (Map<String, dynamic> newSupplier) {
-            String code = _generateSupplierCode(); // Generate code for new supplier
             setState(() {
               _suppliers.add({
-                'code': code,
+                'code': newSupplier['code'],
                 'name': newSupplier['name'],
               });
-              // No need to inject line numbers here as it will be done in _filteredSuppliers()
             });
-            return code; // Return the generated code
+            return newSupplier['code'];
           },
         ),
       ),
@@ -183,10 +204,8 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
   String _generateSupplierCode() {
     Random rnd = Random();
 
-    // Generate first digit (1-9)
     String code = (rnd.nextInt(9) + 1).toString();
 
-    // Generate remaining 9 digits
     for (int i = 1; i < 10; i++) {
       code += rnd.nextInt(10).toString();
     }
@@ -266,7 +285,7 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
                         IconButton(
                           icon: Icon(Icons.delete),
                           onPressed: () {
-                            _deleteSupplier(index);
+                            _showDeleteConfirmationDialog(index);
                           },
                         ),
                       ],

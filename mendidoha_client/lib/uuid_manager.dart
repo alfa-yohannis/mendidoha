@@ -2,15 +2,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 class UuidManager {
-  static const String uuidKey = 'device_id';
+  static const String deviceIdKey = 'device_id';
 
-  static Future<String> getOrCreateUuid() async {
+  static Future<String> getOrCreateDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
-    String? uuid = prefs.getString(uuidKey);
+    String? uuid = prefs.getString(deviceIdKey);
 
     if (uuid == null) {
       uuid = Uuid().v4(); // Generate a new UUID
-      await prefs.setString(uuidKey, uuid);
+      await prefs.setString(deviceIdKey, uuid);
     }
 
     return uuid;

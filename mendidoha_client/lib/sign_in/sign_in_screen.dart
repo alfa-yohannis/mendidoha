@@ -27,7 +27,7 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   Future<void> _initializeUuid() async {
-    String uuid = await UuidManager.getOrCreateUuid();
+    String uuid = await UuidManager.getOrCreateDeviceId();
     print('User UUID: $uuid'); // You can remove this line or use it as needed
   }
 
@@ -143,7 +143,7 @@ class _SignInScreenState extends State<SignInScreen> {
       final Map<String, dynamic> requestData = {
         'username': _usernameController.text,
         'password': _passwordController.text,
-        'device_id': await UuidManager.getOrCreateUuid()
+        'device_id': await UuidManager.getOrCreateDeviceId()
       };
 
       try {
@@ -201,5 +201,6 @@ class _SignInScreenState extends State<SignInScreen> {
     await prefs.setString('session_id', sessionData['session_id']);
     await prefs.setString('start_time', sessionData['start_time']);
     await prefs.setString('expiry_time', sessionData['expiry_time']);
+    await prefs.setString('username', _usernameController.text); // Store the username
   }
 }
