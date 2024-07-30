@@ -8,7 +8,7 @@ mod schema;
 use actix_web::{web, App, HttpServer};
 
 use env_logger::Env;
-use handlers::supplier_handler::list_suppliers;
+use handlers::supplier_handler::{add_supplier, delete_supplier, list_suppliers, update_supplier, get_supplier};
 use handlers::user_handler::{get_user, delete_user, greet, login, logout, reset_password, signup};
 use mendidoha_server::middlewares::validation::ValidationMiddleware;
 
@@ -36,6 +36,10 @@ async fn main() -> std::io::Result<()> {
             .route("/get_user", web::post().to(get_user))
             // suppliers
             .route("/suppliers", web::post().to(list_suppliers))
+            .route("/suppliers/add", web::post().to(add_supplier))
+            .route("/suppliers/update", web::post().to(update_supplier))
+            .route("/suppliers/delete", web::post().to(delete_supplier))
+            .route("/suppliers/get", web::post().to(get_supplier))
     })
     .bind("127.0.0.1:8080")?
     .run()

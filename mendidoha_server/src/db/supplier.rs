@@ -30,22 +30,20 @@ pub fn create_supplier<'a>(
         .get_result(conn)
 }
 
-pub fn get_supplier(conn: &mut PgConnection, supplier_id: i32) -> QueryResult<Supplier> {
+pub fn get_supplier(conn: &mut PgConnection, supplier_code: &str) -> QueryResult<Supplier> {
     suppliers::table
-        .find(supplier_id)
+        .filter(suppliers::code.eq(supplier_code))
         .get_result::<Supplier>(conn)
 }
 
 pub fn update_supplier(
     conn: &mut PgConnection,
-    supplier_id: i32,
     code: &str,
     name: &str,
     updated_by: Option<&str>,
 ) -> QueryResult<Supplier> {
-    diesel::update(suppliers::table.find(supplier_id))
+    diesel::update(suppliers::table.filter(suppliers::code.eq(code)))
         .set((
-            suppliers::code.eq(code),
             suppliers::name.eq(name),
             suppliers::updated.eq(Utc::now().naive_utc()),
             suppliers::updated_by.eq(updated_by),
@@ -53,8 +51,8 @@ pub fn update_supplier(
         .get_result(conn)
 }
 
-pub fn delete_supplier(conn: &mut PgConnection, supplier_id: i32) -> QueryResult<usize> {
-    diesel::delete(suppliers::table.find(supplier_id)).execute(conn)
+pub fn delete_supplier(conn: &mut PgConnection, supplier_code: &str) -> QueryResult<usize> {
+    diesel::delete(suppliers::table.filter(suppliers::code.eq(supplier_code))).execute(conn)
 }
 
 pub fn list_suppliers(conn: &mut PgConnection, search_term: &String) -> QueryResult<Vec<Supplier>> {
@@ -66,8 +64,8 @@ pub fn list_suppliers(conn: &mut PgConnection, search_term: &String) -> QueryRes
     info!("Search term: {}", search_term); // Log the search term
     info!("Search pattern: {}", search_pattern); // Log the search pattern
     query = query.filter(
-        name.like(format!("%{}%", &search_term))
-            .or(code.like(format!("%{}%", &search_term))),
+        name.like(search_pattern.clone())
+            .or(code.like(search_pattern)),
     );
 
     let q = diesel::debug_query::<diesel::pg::Pg, _>(&query).to_string();
