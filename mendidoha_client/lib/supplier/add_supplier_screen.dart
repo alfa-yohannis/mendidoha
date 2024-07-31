@@ -73,8 +73,10 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
               style: TextStyle(color: Colors.black),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: Colors.grey[200], // Background color to indicate it's uneditable
-                labelText: 'Supplier Code (will be generated later, uneditable for the moment)',
+                fillColor: Colors
+                    .grey[200], // Background color to indicate it's uneditable
+                labelText:
+                    'Supplier Code (will be generated later, uneditable for the moment)',
               ),
             ),
             SizedBox(height: 16.0),
