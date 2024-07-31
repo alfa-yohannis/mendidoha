@@ -21,8 +21,10 @@ diesel::table! {
         #[max_length = 10]
         code -> Varchar,
         name -> Varchar,
-        price -> Numeric,
-        quantity -> Numeric,
+        #[max_length = 3]
+        currency -> Varchar,
+        price -> Float4,
+        quantity -> Float4,
         #[max_length = 50]
         unit -> Nullable<Varchar>,
         created -> Timestamptz,
